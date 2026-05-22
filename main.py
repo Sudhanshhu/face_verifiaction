@@ -10,6 +10,24 @@ from insightface.app import FaceAnalysis
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("face-comparison-api")
 
+# Global memory optimization: Monkey-patch ONNX Runtime to enforce strict single-threaded execution.
+# This prevents RAM spikes (>512MB) when running on multi-core servers like Render.
+try:
+    import onnxruntime as ort
+    original_init = ort.InferenceSession.__init__
+    def patched_init(self, path_or_bytes, sess_options=None, *args, **kwargs):
+        if sess_options is None:
+            sess_options = ort.SessionOptions()
+        # Restrict execution to a single thread to respect Render's Free Tier constraints
+        sess_options.intra_op_num_threads = 1
+        sess_options.inter_op_num_threads = 1
+        sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        original_init(self, path_or_bytes, sess_options, *args, **kwargs)
+    ort.InferenceSession.__init__ = patched_init
+    logger.info("Successfully patched onnxruntime to enforce single-threaded CPU execution.")
+except Exception as e:
+    logger.warning(f"Could not monkey-patch onnxruntime: {str(e)}")
+
 app = FastAPI(title="Face Comparison API", version="1.0.0")
 
 # Enable CORS
@@ -23,8 +41,9 @@ app.add_middleware(
 
 logger.info("Initializing InsightFace with buffalo_s model...")
 try:
-    # Use buffalo_s, root="." stores model weights in the local directory
-    model = FaceAnalysis(name="buffalo_s", root=".")
+    # Use buffalo_s, root="." stores model weights in the local directory.
+    # Load ONLY 'detection' and 'recognition' models to save RAM and skip alignment/gender/age models.
+    model = FaceAnalysis(name="buffalo_s", root=".", allowed_modules=['detection', 'recognition'])
     model.prepare(ctx_id=-1, det_size=(320, 320))
     logger.info("InsightFace model loaded successfully!")
 except Exception as e:

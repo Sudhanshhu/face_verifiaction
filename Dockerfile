@@ -33,12 +33,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Global Environment Variables to restrict ONNX Runtime & OpenMP threading
+# This limits thread spawning globally, preventing the Out of Memory crash on multi-core servers.
+ENV OMP_NUM_THREADS=1
+ENV OPENBLAS_NUM_THREADS=1
+ENV MKL_NUM_THREADS=1
+ENV VECLIB_MAXIMUM_THREADS=1
+ENV NUMEXPR_NUM_THREADS=1
+
 # Copy application code
 COPY main.py .
 
-# Pre-download and cache the InsightFace buffalo_s model weights during Docker build.
-# This prevents network timeouts and RAM spikes during initial container startup on Render.
-RUN python -c "from insightface.app import FaceAnalysis; model = FaceAnalysis(name='buffalo_s', root='.'); model.prepare(ctx_id=-1, det_size=(320, 320))"
+# Pre-download and cache only the necessary InsightFace models (detection & recognition) during Docker build.
+# This prevents network timeouts, network failures, and RAM spikes during initial container startup on Render.
+RUN python -c "from insightface.app import FaceAnalysis; model = FaceAnalysis(name='buffalo_s', root='.', allowed_modules=['detection', 'recognition']); model.prepare(ctx_id=-1, det_size=(320, 320))"
 
 # Expose API port
 EXPOSE 8000
