@@ -1,32 +1,40 @@
-import os
-import cv2
-import numpy as np
 import logging
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from insightface.app import FaceAnalysis
 
-# Configure logging
+# Configure logging early
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("face-comparison-api")
 
-# Global memory optimization: Monkey-patch ONNX Runtime to enforce strict single-threaded execution.
-# This prevents RAM spikes (>512MB) when running on multi-core servers like Render.
+# --- ABSOLUTE FIRST STEP: MONKEY-PATCH ONNXRUNTIME ---
+# Python binds imports at import time. We MUST monkey-patch onnxruntime BEFORE 
+# importing insightface, so that when insightface imports onnxruntime inside its 
+# submodules, it receives our thread-limited, memory-arena-disabled session.
 try:
     import onnxruntime as ort
     original_init = ort.InferenceSession.__init__
     def patched_init(self, path_or_bytes, sess_options=None, *args, **kwargs):
         if sess_options is None:
             sess_options = ort.SessionOptions()
-        # Restrict execution to a single thread to respect Render's Free Tier constraints
+        # Force strict single-threaded CPU execution to respect 512MB RAM constraints on multi-core hosts
         sess_options.intra_op_num_threads = 1
         sess_options.inter_op_num_threads = 1
         sess_options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        # Disable CPU memory arena and memory patterning to release memory to the system immediately
+        sess_options.enable_cpu_mem_arena = False
+        sess_options.enable_mem_pattern = False
         original_init(self, path_or_bytes, sess_options, *args, **kwargs)
     ort.InferenceSession.__init__ = patched_init
-    logger.info("Successfully patched onnxruntime to enforce single-threaded CPU execution.")
+    logger.info("Successfully patched onnxruntime (disabled CPU memory arena, forced single-threading).")
 except Exception as e:
     logger.warning(f"Could not monkey-patch onnxruntime: {str(e)}")
+
+# Now import standard libraries and Web Framework components
+import os
+import cv2
+import numpy as np
+import gc
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from insightface.app import FaceAnalysis
 
 app = FastAPI(title="Face Comparison API", version="1.0.0")
 
@@ -46,6 +54,8 @@ try:
     model = FaceAnalysis(name="buffalo_s", root=".", allowed_modules=['detection', 'recognition'])
     model.prepare(ctx_id=-1, det_size=(320, 320))
     logger.info("InsightFace model loaded successfully!")
+    # Aggressively collect garbage to free memory from parsing model weights/JSONs
+    gc.collect()
 except Exception as e:
     logger.error(f"Failed to load InsightFace model: {str(e)}")
     model = None
@@ -118,3 +128,6 @@ async def compare_faces(
     except Exception as e:
         logger.error(f"Error during face comparison: {str(e)}")
         return {"success": False, "match": False, "confidence": 0.0, "similarity": 0.0, "message": f"Server error: {str(e)}"}
+    finally:
+        # Aggressively collect garbage to free image bytes and temporary tensors
+        gc.collect()
