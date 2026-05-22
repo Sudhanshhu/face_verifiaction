@@ -32,6 +32,8 @@ import os
 import cv2
 import numpy as np
 import gc
+import requests
+from pydantic import BaseModel
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from insightface.app import FaceAnalysis
@@ -131,3 +133,92 @@ async def compare_faces(
     finally:
         # Aggressively collect garbage to free image bytes and temporary tensors
         gc.collect()
+
+def download_image_from_url(url: str) -> bytes:
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    # Download with a timeout to prevent hanging connections
+    response = requests.get(url, headers=headers, timeout=15)
+    response.raise_for_status()
+    return response.content
+
+def execute_url_comparison(url1: str, url2: str):
+    if model is None:
+        raise HTTPException(status_code=500, detail="Face detection model not initialized.")
+
+    try:
+        # Download images programmatically
+        try:
+            img1_bytes = download_image_from_url(url1)
+        except Exception as e:
+            return {"success": False, "match": False, "confidence": 0.0, "similarity": 0.0, "message": f"Failed to download Image 1 from URL: {str(e)}"}
+
+        try:
+            img2_bytes = download_image_from_url(url2)
+        except Exception as e:
+            return {"success": False, "match": False, "confidence": 0.0, "similarity": 0.0, "message": f"Failed to download Image 2 from URL: {str(e)}"}
+
+        nparr1 = np.frombuffer(img1_bytes, np.uint8)
+        nparr2 = np.frombuffer(img2_bytes, np.uint8)
+
+        img1 = cv2.imdecode(nparr1, cv2.IMREAD_COLOR)
+        img2 = cv2.imdecode(nparr2, cv2.IMREAD_COLOR)
+
+        if img1 is None:
+            return {"success": False, "match": False, "confidence": 0.0, "similarity": 0.0, "message": "Failed to decode Image 1"}
+        if img2 is None:
+            return {"success": False, "match": False, "confidence": 0.0, "similarity": 0.0, "message": "Failed to decode Image 2"}
+
+        faces1 = model.get(img1)
+        faces2 = model.get(img2)
+
+        if len(faces1) == 0:
+            return {"success": True, "match": False, "confidence": 0.0, "similarity": 0.0, "message": "No face detected in Image 1"}
+        if len(faces2) == 0:
+            return {"success": True, "match": False, "confidence": 0.0, "similarity": 0.0, "message": "No face detected in Image 2"}
+
+        emb1 = faces1[0].embedding
+        emb2 = faces2[0].embedding
+
+        dot_product = np.dot(emb1, emb2)
+        norm_emb1 = np.linalg.norm(emb1)
+        norm_emb2 = np.linalg.norm(emb2)
+
+        if norm_emb1 == 0 or norm_emb2 == 0:
+            similarity = 0.0
+        else:
+            similarity = float(dot_product / (norm_emb1 * norm_emb2))
+
+        # 0.40 is the standard cosine similarity threshold for buffalo_s on CPU
+        threshold = 0.40
+        is_match = similarity >= threshold
+        confidence = max(0.0, min(100.0, similarity * 100.0))
+
+        return {
+            "success": True,
+            "match": is_match,
+            "confidence": round(confidence, 2),
+            "similarity": round(similarity, 4),
+            "threshold": threshold,
+            "message": "Faces compared successfully."
+        }
+
+    except Exception as e:
+        logger.error(f"Error during face comparison: {str(e)}")
+        return {"success": False, "match": False, "confidence": 0.0, "similarity": 0.0, "message": f"Server error: {str(e)}"}
+    finally:
+        # Aggressively collect garbage to free memory
+        gc.collect()
+
+# Request model for URL-based face comparison (POST JSON)
+class CompareURLRequest(BaseModel):
+    url1: str
+    url2: str
+
+@app.post("/compare-url")
+def compare_faces_by_url_post(req: CompareURLRequest):
+    return execute_url_comparison(req.url1, req.url2)
+
+@app.get("/compare-url")
+def compare_faces_by_url_get(url1: str, url2: str):
+    return execute_url_comparison(url1, url2)
+

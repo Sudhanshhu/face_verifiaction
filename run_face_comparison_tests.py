@@ -84,6 +84,51 @@ def run_tests():
     else:
         print("❌ Test files missing.")
 
+    # 3. Test URL Compare POST (Obama vs Trump via URL)
+    print("\n--- Test Case 3: URL Compare POST (Barack Obama vs Donald Trump via URL) ---")
+    try:
+        payload = {
+            "url1": "https://upload.wikimedia.org/wikipedia/commons/8/8d/President_Barack_Obama.jpg",
+            "url2": "https://upload.wikimedia.org/wikipedia/commons/5/56/Donald_Trump_official_portrait.jpg"
+        }
+        response = requests.post(f"{URL}/compare-url", json=payload)
+        print(f"HTTP Status: {response.status_code}")
+        data = response.json()
+        print("Response JSON:")
+        for k, v in data.items():
+            print(f"  {k}: {v}")
+        
+        # Assertions
+        if data.get("success") and data.get("match") is False:
+            print("🎉 SUCCESS: URL POST Non-match correctly identified!")
+        else:
+            print("❌ FAILURE: URL POST Non-match failed to identify.")
+    except Exception as e:
+        print(f"❌ Error during URL POST test: {e}")
+
+    # 4. Test URL Compare GET (Obama vs Obama via URL GET)
+    print("\n--- Test Case 4: URL Compare GET (Barack Obama vs Barack Obama via URL GET) ---")
+    try:
+        params = {
+            "url1": "https://upload.wikimedia.org/wikipedia/commons/8/8d/President_Barack_Obama.jpg",
+            "url2": "https://upload.wikimedia.org/wikipedia/commons/e/e9/Official_portrait_of_Barack_Obama.jpg"
+        }
+        response = requests.get(f"{URL}/compare-url", params=params)
+        print(f"HTTP Status: {response.status_code}")
+        data = response.json()
+        print("Response JSON:")
+        for k, v in data.items():
+            print(f"  {k}: {v}")
+        
+        # Assertions
+        if data.get("success") and data.get("match") is True:
+            print("🎉 SUCCESS: URL GET Match correctly identified!")
+        else:
+            print("❌ FAILURE: URL GET Match failed to identify.")
+    except Exception as e:
+        print(f"❌ Error during URL GET test: {e}")
+
 if __name__ == "__main__":
     download_images()
     run_tests()
+
