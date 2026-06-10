@@ -5,6 +5,27 @@ A standalone, high-performance, and lightweight Face Comparison API built with *
 This application is specifically designed and configured to run within **Render's Free Tier (512MB RAM Limit)** without triggering Out-of-Memory (OOM) failures, by leveraging advanced ONNX runtime modifications and selective model initialization.
 
 ---
+Step 1: Download the Installer via PowerShell
+
+Invoke-WebRequest -Uri "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -OutFile "DockerDesktopInstaller.exe"
+
+Step 2: Run the Installer Silently
+Start-Process -FilePath ".\DockerDesktopInstaller.exe" -ArgumentList "install", "--quiet", "--accept-license", "--backend=wsl-2" -Wait -NoNewWindow
+
+
+Step 3: Clean Up and Restart
+Remove-Item "DockerDesktopInstaller.exe"
+
+Invoke-WebRequest -Uri "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -OutFile "DockerDesktopInstaller.exe"
+
+Update (If Needed)
+wsl --update
+
+Check if it is Ready via PowerShell
+docker info
+
+
+
 
 ## 🚀 Key Features
 
