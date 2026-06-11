@@ -5,27 +5,68 @@ A standalone, high-performance, and lightweight Face Comparison API built with *
 This application is specifically designed and configured to run within **Render's Free Tier (512MB RAM Limit)** without triggering Out-of-Memory (OOM) failures, by leveraging advanced ONNX runtime modifications and selective model initialization.
 
 ---
-Step 1: Download the Installer via PowerShell
 
+## 🐳 Docker Desktop Quick Install (Windows PowerShell)
+
+For Windows users setting up Docker Desktop, run **PowerShell as an Administrator** and follow these instructions.
+
+### Option 1: All-in-One Script
+Copy and execute this script to download, install, update WSL, clean up, and launch Docker Desktop automatically:
+
+```powershell
+# 1. Download Docker Desktop Installer
+Write-Host "Downloading Docker Desktop Installer..." -ForegroundColor Cyan
 Invoke-WebRequest -Uri "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -OutFile "DockerDesktopInstaller.exe"
 
-Step 2: Run the Installer Silently
+# 2. Run installer silently with WSL-2 backend
+Write-Host "Installing Docker Desktop (this may take a few minutes)..." -ForegroundColor Cyan
 Start-Process -FilePath ".\DockerDesktopInstaller.exe" -ArgumentList "install", "--quiet", "--accept-license", "--backend=wsl-2" -Wait -NoNewWindow
 
+# 3. Clean up the installer executable
+Write-Host "Cleaning up installation files..." -ForegroundColor Cyan
+Remove-Item "DockerDesktopInstaller.exe" -ErrorAction SilentlyContinue
 
-Step 3: Clean Up and Restart
-Remove-Item "DockerDesktopInstaller.exe"
-
-Invoke-WebRequest -Uri "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -OutFile "DockerDesktopInstaller.exe"
-
-Update (If Needed)
+# 4. Update WSL (recommended for WSL 2 backend)
+Write-Host "Updating WSL..." -ForegroundColor Cyan
 wsl --update
 
-Check if it is Ready via PowerShell
+# 5. Start Docker Desktop
+Write-Host "Launching Docker Desktop..." -ForegroundColor Cyan
+Start-Process -FilePath "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+
+Write-Host "Installation completed! Please wait a moment for Docker to fully initialize, then run 'docker info' to verify." -ForegroundColor Green
+```
+
+### Option 2: Step-by-Step Installation
+
+#### **Step 1: Download the Installer**
+```powershell
+Invoke-WebRequest -Uri "https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe" -OutFile "DockerDesktopInstaller.exe"
+```
+
+#### **Step 2: Run the Installer Silently**
+```powershell
+Start-Process -FilePath ".\DockerDesktopInstaller.exe" -ArgumentList "install", "--quiet", "--accept-license", "--backend=wsl-2" -Wait -NoNewWindow
+```
+
+#### **Step 3: Clean Up & Update WSL (Recommended)**
+```powershell
+Remove-Item "DockerDesktopInstaller.exe"
+wsl --update
+```
+
+#### **Step 4: Launch Docker Desktop**
+```powershell
+Start-Process "C:\Program Files\Docker\Docker\Docker Desktop.exe"
+```
+
+#### **Step 5: Verify if it is Ready**
+Wait a few seconds for Docker to spin up, then run:
+```powershell
 docker info
+```
 
-
-
+---
 
 ## 🚀 Key Features
 
