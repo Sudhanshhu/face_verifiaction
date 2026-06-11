@@ -111,6 +111,65 @@ uvicorn main:app --host 127.0.0.1 --port 8000 --reload
 
 ---
 
+## 🐳 Running via Docker (Local)
+
+Once Docker Desktop is installed and running, you can run the API inside a container:
+
+### 1. Build the Docker Image
+Open your terminal (PowerShell, Command Prompt, or terminal on macOS/Linux), navigate to the project root directory, and run:
+```bash
+docker build -t face-comparison-api .
+```
+
+### 2. Run the Docker Container
+Start the container and map port `8000` of the container to port `8000` of your host machine:
+```bash
+docker run -d -p 8000:8000 --name face-api-container face-comparison-api
+```
+
+### 3. Verify Docker Running State
+Verify the container is running and check its logs:
+```bash
+docker ps
+docker logs face-api-container
+```
+
+Once running, you can access the API locally at `http://localhost:8000`.
+
+---
+
+## 🌐 Exposing/Sharing the API with Other Users
+
+To let other users (on other devices or externally) access your API, choose one of the following methods:
+
+### Method 1: Sharing via Local Network (LAN)
+If the other users are on the **same Wi-Fi or local network** as your computer:
+1. Find your computer's local IP address:
+   - **Windows (PowerShell)**: Run `Get-NetIPAddress -AddressFamily IPv4` (look for `IPAddress` on your active network adapter, e.g., `192.168.1.100`).
+   - **macOS/Linux (Terminal)**: Run `ipconfig getifaddr en0` or `hostname -I`.
+2. Other users can now access your API using your IP address. For example:
+   ```http
+   http://192.168.1.100:8000/
+   ```
+
+### Method 2: Exposing Publicly via ngrok (Internet Tunnel)
+If the other users are **not on your local network** (they are anywhere on the internet), you can use a secure tunnel like **ngrok** to create a public URL:
+1. Install ngrok (e.g., via winget or download it from [ngrok.com](https://ngrok.com)):
+   ```bash
+   # Windows (winget)
+   winget install ngrok.ngrok
+   ```
+2. Start the tunnel to expose port `8000`:
+   ```bash
+   ngrok http 8000
+   ```
+3. ngrok will display a public URL (e.g., `https://xxxx-xx-xx-xxx-xx.ngrok-free.app`). Give this URL to other users or use it in your apps to perform comparisons from anywhere.
+
+### Method 3: Cloud Deployment (Render)
+For permanent internet access without keeping your computer running, refer to the **Deploying to Render** section below.
+
+---
+
 ## 📡 API Endpoints
 
 ### 1. Health Status
